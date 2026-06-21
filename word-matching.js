@@ -339,48 +339,17 @@ const roleClusters = {
     ],
 };
 
-// Role metadata used to return meaningful domains and interview/study topics.
 const roleProfiles = {
-    'Backend Developer': {
-        domain: 'Backend Engineering (General)',
-        topics: ['APIs', 'Databases', 'Authentication', 'Scalability', 'Caching'],
-    },
-    '.NET Developer': {
-        domain: 'Backend Engineering (.NET)',
-        topics: ['C#', '.NET / ASP.NET Core', 'Entity Framework', 'REST APIs', 'Azure Basics'],
-    },
-    'Python Developer': {
-        domain: 'Backend Engineering (Python)',
-        topics: ['Python', 'Django/Flask/FastAPI', 'ORMs', 'API Design', 'Async Programming'],
-    },
-    'Java Developer': {
-        domain: 'Backend Engineering (Java)',
-        topics: ['Java', 'Spring Boot', 'JPA/Hibernate', 'Microservices', 'JVM Performance'],
-    },
-    'Node.js Developer': {
-        domain: 'Backend Engineering (Node.js)',
-        topics: ['Node.js', 'Express/Nest', 'Async Patterns', 'API Security', 'TypeScript'],
-    },
-    'Go Developer': {
-        domain: 'Backend Engineering (Go)',
-        topics: ['Go', 'Concurrency', 'gRPC/REST', 'Profiling', 'Cloud-native Services'],
-    },
-    'Ruby Developer': {
-        domain: 'Backend Engineering (Ruby)',
-        topics: ['Ruby', 'Rails', 'ActiveRecord', 'MVC Design', 'Testing'],
-    },
-    'PHP Developer': {
-        domain: 'Backend Engineering (PHP)',
-        topics: ['PHP', 'Laravel/Symfony', 'MVC', 'MySQL', 'API Development'],
-    },
-    'Rust Developer': {
-        domain: 'Backend/Systems Engineering (Rust)',
-        topics: ['Rust Ownership', 'Concurrency Safety', 'Performance', 'Systems APIs', 'Web Backends'],
-    },
-    'C++ Developer': {
-        domain: 'Systems/Performance Engineering (C++)',
-        topics: ['Modern C++', 'Memory Management', 'STL', 'Multithreading', 'Optimization'],
-    },
+    'Backend Developer': { domain: 'Backend Engineering (General)', studyPlan: 'Core Backend Plan' },
+    '.NET Developer': { domain: 'Backend Engineering (.NET)', studyPlan: '.NET Backend Plan' },
+    'Python Developer': { domain: 'Backend Engineering (Python)', studyPlan: 'Python Backend Plan' },
+    'Java Developer': { domain: 'Backend Engineering (Java)', studyPlan: 'Java Backend Plan' },
+    'Node.js Developer': { domain: 'Backend Engineering (Node.js)', studyPlan: 'Node.js Backend Plan' },
+    'Go Developer': { domain: 'Backend Engineering (Go)', studyPlan: 'Go Backend Plan' },
+    'Ruby Developer': { domain: 'Backend Engineering (Ruby)', studyPlan: 'Ruby Backend Plan' },
+    'PHP Developer': { domain: 'Backend Engineering (PHP)', studyPlan: 'PHP Backend Plan' },
+    'Rust Developer': { domain: 'Backend/Systems Engineering (Rust)', studyPlan: 'Rust Systems Plan' },
+    'C++ Developer': { domain: 'Systems/Performance Engineering (C++)', studyPlan: 'C++ Systems Plan' },
 };
 
 // ─── Phase 2: Flat keyword list + reverse-lookup map ──────────────────────────
@@ -408,6 +377,7 @@ for (const [canonicalRole, keywords] of Object.entries(roleClusters)) {
 
 const allKeywords = [...keywordSet];
 
+// Minimum single-character edits needed to transform a into b.
 function levenshteinDistance(a, b) {
     const rows = a.length + 1;
     const cols = b.length + 1;
@@ -431,12 +401,14 @@ function levenshteinDistance(a, b) {
 }
 
 function similarityScore(a, b) {
+    // Normalize edit distance to 0..1 (1 = exact match).
     const longest = Math.max(a.length, b.length);
     if (longest === 0) return 1;
     return 1 - (levenshteinDistance(a, b) / longest);
 }
 
 function tokenOverlapScore(a, b) {
+    // Word-level overlap score to complement character similarity.
     const aTokens = new Set(a.split(/\s+/).filter(Boolean));
     const bTokens = new Set(b.split(/\s+/).filter(Boolean));
     if (!aTokens.size || !bTokens.size) return 0;
@@ -449,7 +421,43 @@ function tokenOverlapScore(a, b) {
     return overlap / Math.max(aTokens.size, bTokens.size);
 }
 
+const roleHintRules = [
+    { role: 'Python Developer', tokens: ['python', 'django', 'flask', 'fastapi'] },
+    { role: '.NET Developer', tokens: ['.net', 'asp.net', 'c#', 'dotnet'] },
+    { role: 'Java Developer', tokens: ['java', 'spring', 'jvm'] },
+    { role: 'Node.js Developer', tokens: ['node.js', 'node', 'express'] },
+    { role: 'Go Developer', tokens: ['go', 'golang'] },
+    { role: 'Ruby Developer', tokens: ['ruby', 'rails'] },
+    { role: 'PHP Developer', tokens: ['php', 'laravel', 'symfony'] },
+    { role: 'Rust Developer', tokens: ['rust'] },
+    { role: 'C++ Developer', tokens: ['c++', 'cpp'] },
+];
+
+// Boost/penalize candidates based on explicit language hints in user input.
+function getRoleHintBoost(normalizedInput, canonicalRole, keyword) {
+    // Prefer stack-specific roles when input contains clear language hints.
+    const inputTokens = new Set(normalizedInput.split(/\s+/).filter(Boolean));
+    const keywordTokens = new Set(keyword.split(/\s+/).filter(Boolean));
+
+    const matchedRule = roleHintRules.find((rule) => rule.tokens.some((token) => inputTokens.has(token)));
+    if (!matchedRule) return 0;
+
+    if (matchedRule.role === canonicalRole) {
+        return 0.25;
+    }
+
+    // If a language hint exists, slightly penalize generic roles unless keyword also carries that hint.
+    const keywordHasHint = matchedRule.tokens.some((token) => keywordTokens.has(token));
+    if (!keywordHasHint && (canonicalRole === 'Software Engineer' || canonicalRole === 'Backend Developer')) {
+        return -0.12;
+    }
+
+    return 0;
+}
+
+// Build a uniform response object for exact matches.
 function buildResult(input, sanitized, canonicalRole, matchedKeyword) {
+    // Return consistent output shape for exact/suggested selections.
     const profile = roleProfiles[canonicalRole];
     return {
         input,
@@ -457,17 +465,20 @@ function buildResult(input, sanitized, canonicalRole, matchedKeyword) {
         matchedKeyword,
         canonicalRole,
         domain: profile?.domain ?? canonicalRole ?? 'Unknown',
-        topics: profile?.topics ?? [],
+        studyPlan: profile?.studyPlan ?? 'General Plan',
     };
 }
 
+// Rank fuzzy candidates and return top unique canonical-role suggestions.
 function getSuggestions(normalizedInput, limit = 4, minScore = 0.45) {
+    // Rank aliases by combined score and keep unique top roles.
     const ranked = allKeywords
         .map((keyword) => {
+            const canonicalRole = keywordToRole[keyword];
             const editScore = similarityScore(normalizedInput, keyword);
             const overlapScore = tokenOverlapScore(normalizedInput, keyword);
-            const score = (editScore * 0.65) + (overlapScore * 0.35);
-            return { keyword, score };
+            const score = (editScore * 0.65) + (overlapScore * 0.35) + getRoleHintBoost(normalizedInput, canonicalRole, keyword);
+            return { keyword, score, canonicalRole };
         })
         .filter((candidate) => candidate.score >= minScore)
         .sort((a, b) => b.score - a.score)
@@ -475,25 +486,24 @@ function getSuggestions(normalizedInput, limit = 4, minScore = 0.45) {
 
     const byRole = new Map();
     for (const candidate of ranked) {
-        const canonicalRole = keywordToRole[candidate.keyword];
+        const canonicalRole = candidate.canonicalRole;
         if (!canonicalRole || byRole.has(canonicalRole)) continue;
 
-        const profile = roleProfiles[canonicalRole];
         byRole.set(canonicalRole, {
             canonicalRole,
             keyword: keywordToLabel[candidate.keyword] ?? candidate.keyword,
-            domain: profile?.domain ?? canonicalRole,
-            topics: profile?.topics ?? [],
+            domain: roleProfiles[canonicalRole]?.domain ?? canonicalRole,
+            studyPlan: roleProfiles[canonicalRole]?.studyPlan ?? 'General Plan',
         });
 
         if (byRole.size >= limit) break;
     }
-
     return [...byRole.values()];
 }
 
 // ─── Phase 3: Input Sanitiser ─────────────────────────────────────────────────
 function sanitizeInput(raw) {
+    // Clean display text while preserving role symbols (., #, +, -).
     return raw
         .trim()                           // remove leading/trailing whitespace
         .replace(/[^a-zA-Z0-9\s\-+.#]/g, '') // keep tech symbols like ., #, +
@@ -502,14 +512,17 @@ function sanitizeInput(raw) {
 
 // ─── Phase 4: Classifier ──────────────────────────────────────────────────────
 // Pipeline: raw input → sanitize → fuzzy-match keyword → canonical role → domain
+// Exact match is preferred; suggestions are used only as fallback.
 function classifyRole(userInput) {
-    const sanitized = sanitizeInput(userInput);
-    const normalizedInput = normalizeForMatching(userInput);
+    // Exact match first; otherwise suggest; else return Unknown.
+    const sanitized = sanitizeInput(userInput);                         // remove unwanted characters and normalize spacing
+    const normalizedInput = normalizeForMatching(userInput);            // normalize for matching against keywords
 
     if (!normalizedInput) {
-        return { status: 'empty', input: userInput, sanitized: '', canonicalRole: null, domain: null, topics: [] };
+        return { status: 'empty', input: userInput, sanitized: '', canonicalRole: null, domain: null, studyPlan: null };
     }
 
+    // Check for exact match first
     const exactCanonicalRole = keywordToRole[normalizedInput];
     if (exactCanonicalRole) {
         return { status: 'exact', ...buildResult(userInput, sanitized, exactCanonicalRole, normalizedInput) };
@@ -520,16 +533,18 @@ function classifyRole(userInput) {
         return { status: 'suggestions', input: userInput, sanitized, suggestions };
     }
 
-    return { status: 'none', input: userInput, sanitized, canonicalRole: null, domain: 'Unknown', topics: [] };
+    return { status: 'none', input: userInput, sanitized, canonicalRole: null, domain: 'Unknown', studyPlan: null };
 }
 
-function printClassificationResult({ sanitized, canonicalRole, domain, topics }) {
+function printClassificationResult({ sanitized, canonicalRole, domain, studyPlan }) {
+    // Centralized formatter for all successful outputs.
     console.log(`  Sanitized      : ${sanitized}`);
     console.log(`  Canonical Role : ${canonicalRole ?? 'No match found'}`);
-    console.log(`  Domain         : ${domain}\n`);
-    if (topics.length) {
-        console.log(`  Topics         : ${topics.join(', ')}\n`);
+    console.log(`  Domain         : ${domain}`);
+    if (studyPlan) {
+        console.log(`  Study Plan     : ${studyPlan}`);
     }
+    console.log('');
 }
 
 // ─── Interactive CLI ──────────────────────────────────────────────────────────
@@ -543,9 +558,11 @@ console.log('Type a job role and press Enter.');
 console.log('Type "exit" to quit.\n');
 
 function prompt() {
+    // Interactive loop until user types exit.
     rl.question('Job role: ', (input) => {
         const role = input.trim();
 
+        // closing workflow on exit command.
         if (role.toLowerCase() === 'exit') {
             console.log('Goodbye!');
             rl.close();
@@ -582,7 +599,7 @@ function prompt() {
                     sanitized,
                     canonicalRole: selected.canonicalRole,
                     domain: selected.domain,
-                    topics: selected.topics,
+                    studyPlan: selected.studyPlan,
                 });
                 prompt();
             });
@@ -594,6 +611,4 @@ function prompt() {
     });
 }
 
-prompt();
-
-// node .\word-matching.js
+prompt();                           // node .\word-matching.js
