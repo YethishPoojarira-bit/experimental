@@ -22,6 +22,23 @@ Core goals:
 8. User selects an option number or skips.
 9. Selected option is returned as final classification.
 
+```mermaid
+flowchart TD
+  A[User enters job role] --> B[Sanitize input for display]
+  B --> C[Normalize input for matching]
+  C --> D{Normalized input empty?}
+  D -- Yes --> E[Return status: empty]
+  D -- No --> F{Exact match in keywordToRole?}
+  F -- Yes --> G[Return canonical role\nstatus: exact]
+  F -- No --> H[Compute fuzzy suggestions]
+  H --> I{Any suggestions above threshold?}
+  I -- No --> J[Return status: none]
+  I -- Yes --> K[Show Did you mean list]
+  K --> L{User selects valid option?}
+  L -- Yes --> M[Return selected canonical role]
+  L -- No --> N[Continue without forced match]
+```
+
 ---
 
 ## Phase 1: Role Clusters (Source of Truth)
@@ -79,6 +96,14 @@ From `roleClusters`, the script builds:
 
 All three are built in one pass over `roleClusters`.
 
+```mermaid
+flowchart LR
+  A[roleClusters\ncanonical role -> aliases] --> B[Normalize each alias]
+  B --> C[keywordToRole\nnormalized keyword -> canonical role]
+  B --> D[keywordToLabel\nnormalized keyword -> display alias]
+  B --> E[allKeywords\ndeduplicated normalized keywords]
+```
+
 ---
 
 ## Phase 4: Exact Match First
@@ -122,6 +147,22 @@ High-level formula:
 - Sort descending by score.
 - Deduplicate by canonical role (one suggestion per role).
 - Return top `limit` suggestions.
+
+```mermaid
+flowchart TD
+  A[normalizedInput] --> B[Iterate allKeywords]
+  B --> C[Compute editScore\nLevenshtein similarity]
+  B --> D[Compute overlapScore\nToken overlap]
+  B --> E[Compute hintBoost\nroleHintRules]
+  C --> F[score = 0.65*editScore + 0.35*overlapScore + hintBoost]
+  D --> F
+  E --> F
+  F --> G[Filter score >= minScore]
+  G --> H[Sort by score desc]
+  H --> I[Deduplicate by canonical role]
+  I --> J[Take top limit]
+  J --> K[Suggestion list for CLI]
+```
 
 ---
 
@@ -208,6 +249,26 @@ Process:
 5. Top suggestion becomes `Python Developer`.
 6. User selects option.
 7. Final output returns canonical role + domain + study plan.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant P as prompt()
+  participant C as classifyRole()
+  participant S as getSuggestions()
+
+  U->>P: "python application develoepr"
+  P->>C: classifyRole(userInput)
+  C->>C: sanitizeInput + normalizeForMatching
+  C->>C: exact lookup in keywordToRole
+  C-->>P: no exact match
+  P->>S: getSuggestions(normalizedInput)
+  S->>S: score candidates (edit + overlap + hint)
+  S-->>P: top suggestion = Python Developer
+  P-->>U: Show Did you mean options
+  U->>P: Select option number
+  P-->>U: Return Canonical Role + Domain + Study Plan
+```
 
 ---
 

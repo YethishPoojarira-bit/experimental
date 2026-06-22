@@ -302,6 +302,15 @@ const roleClusters = {
         'IT Business Analyst', 'Requirements Analyst', 'Process Analyst',
     ],
 
+    // Expectation: lead generation, client outreach, pipeline growth, and revenue support.
+    'Business Development Associate': [
+        'Business Development Associate', 'Associate Business Developer', 'Business Developer',
+        'Business Development Executive', 'Business Development Rep', 'Business Development Representative',
+        'BDA', 'BDA Executive', 'Business Development',
+        // common misspellings users may type
+        'Assoscialte Business Developer', 'Assosiate Business Developer',
+    ],
+
     // Expectation: technical ownership of a team feature area, coding + design + mentoring.
     'Tech Lead': [
         'Tech Lead', 'Technical Lead', 'Team Lead', 'Lead Engineer',
@@ -350,6 +359,7 @@ const roleProfiles = {
     'PHP Developer': { domain: 'Backend Engineering (PHP)', studyPlan: 'PHP Backend Plan' },
     'Rust Developer': { domain: 'Backend/Systems Engineering (Rust)', studyPlan: 'Rust Systems Plan' },
     'C++ Developer': { domain: 'Systems/Performance Engineering (C++)', studyPlan: 'C++ Systems Plan' },
+    'Business Development Associate': { domain: 'Business Development', studyPlan: 'Business Development Plan' },
 };
 
 // ─── Phase 2: Flat keyword list + reverse-lookup map ──────────────────────────
@@ -431,6 +441,7 @@ const roleHintRules = [
     { role: 'PHP Developer', tokens: ['php', 'laravel', 'symfony'] },
     { role: 'Rust Developer', tokens: ['rust'] },
     { role: 'C++ Developer', tokens: ['c++', 'cpp'] },
+    { role: 'Business Development Associate', tokens: ['business', 'development', 'bda', 'sales', 'lead', 'outreach'] },
 ];
 
 // Boost/penalize candidates based on explicit language hints in user input.
