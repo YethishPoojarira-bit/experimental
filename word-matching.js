@@ -46,7 +46,8 @@ const roleClusters = {
     // Expectation: Python backend services, APIs, frameworks, scripting-heavy backend work.
     'Python Developer': [
         'Python Developer', 'Python Engineer', 'Django Developer',
-        'Flask Developer', 'FastAPI Developer',
+        'Flask Developer', 'FastAPI Developer', 'Py Developer',
+        'Py Engineer', 'Python Dev',
     ],
 
     // Expectation: Java/JVM backend development, Spring ecosystem, enterprise services.
