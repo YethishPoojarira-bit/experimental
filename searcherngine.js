@@ -325,3 +325,5 @@ async function main() {
 }
 
 main();
+
+// Usage: node searcherngine.js --role "Backend Developer" [--location "Bengaluru"]
